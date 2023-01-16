@@ -60,6 +60,7 @@
 /**
  * ArvCameraVendor:
  * @ARV_CAMERA_VENDOR_UNKNOWN: unknown camera vendor
+ * @ARV_CAMERA_VENDOR_LUCID: Lucid 
  * @ARV_CAMERA_VENDOR_BASLER: Basler
  * @ARV_CAMERA_VENDOR_PROSILICA: Prosilica
  * @ARV_CAMERA_VENDOR_TIS: The Imaging Source
@@ -70,6 +71,7 @@
 
 typedef enum {
 	ARV_CAMERA_VENDOR_UNKNOWN,
+	ARV_CAMERA_VENDOR_LUCID,
 	ARV_CAMERA_VENDOR_BASLER,
 	ARV_CAMERA_VENDOR_DALSA,
 	ARV_CAMERA_VENDOR_PROSILICA,
@@ -82,6 +84,7 @@ typedef enum {
 
 typedef enum {
 	ARV_CAMERA_SERIES_UNKNOWN,
+	ARV_CAMERA_SERIES_LUCID,	
 	ARV_CAMERA_SERIES_BASLER_ACE,
 	ARV_CAMERA_SERIES_BASLER_SCOUT,
 	ARV_CAMERA_SERIES_BASLER_OTHER,
@@ -924,6 +927,18 @@ arv_camera_set_frame_rate (ArvCamera *camera, double frame_rate)
 			arv_device_set_string_feature_value (camera->priv->device, "AcquisitionFrameRateAuto", "Off");
 			arv_device_set_float_feature_value (camera->priv->device, "AcquisitionFrameRate", frame_rate);
 			break;
+		case ARV_CAMERA_VENDOR_LUCID:
+			arv_device_set_string_feature_value (camera->priv->device, "TriggerSelector", "FrameStart");
+			arv_device_set_string_feature_value (camera->priv->device, "TriggerMode", "Off");
+			if (camera->priv->has_acquisition_frame_rate_enabled)
+				arv_device_set_integer_feature_value (camera->priv->device, "AcquisitionFrameRateEnabled", 1);
+			else
+				arv_device_set_boolean_feature_value (camera->priv->device, "AcquisitionFrameRateEnable", 1);
+				arv_device_set_float_feature_value (camera->priv->device,
+							    camera->priv->has_acquisition_frame_rate ?
+							    "AcquisitionFrameRate":
+							    "AcquisitionFrameRateAbs", frame_rate);			
+				break;
 		case ARV_CAMERA_VENDOR_DALSA:
 		case ARV_CAMERA_VENDOR_RICOH:
 		case ARV_CAMERA_VENDOR_XIMEA:
@@ -971,17 +986,18 @@ arv_camera_get_frame_rate (ArvCamera *camera)
 					return 0;
 			} else
 				return arv_device_get_float_feature_value (camera->priv->device, "FPS");
+		case ARV_CAMERA_VENDOR_LUCID:
 		case ARV_CAMERA_VENDOR_POINT_GREY_FLIR:
 		case ARV_CAMERA_VENDOR_DALSA:
 		case ARV_CAMERA_VENDOR_RICOH:
 		case ARV_CAMERA_VENDOR_BASLER:
-	        case ARV_CAMERA_VENDOR_XIMEA:
+		case ARV_CAMERA_VENDOR_XIMEA:
 		case ARV_CAMERA_VENDOR_MATRIX_VISION:
-	        case ARV_CAMERA_VENDOR_UNKNOWN:
-			return arv_device_get_float_feature_value (camera->priv->device,
-								   camera->priv->has_acquisition_frame_rate ?
-								   "AcquisitionFrameRate":
-								   "AcquisitionFrameRateAbs");
+		case ARV_CAMERA_VENDOR_UNKNOWN:
+		return arv_device_get_float_feature_value (camera->priv->device,
+								camera->priv->has_acquisition_frame_rate ?
+								"AcquisitionFrameRate":
+								"AcquisitionFrameRateAbs");
 	}
 
 	return -1.0;
@@ -1043,8 +1059,9 @@ arv_camera_get_frame_rate_bounds (ArvCamera *camera, double *min, double *max)
 		case ARV_CAMERA_VENDOR_DALSA:
 		case ARV_CAMERA_VENDOR_RICOH:
 		case ARV_CAMERA_VENDOR_BASLER:
-	        case ARV_CAMERA_VENDOR_XIMEA:
+		case ARV_CAMERA_VENDOR_XIMEA:
 		case ARV_CAMERA_VENDOR_MATRIX_VISION:
+		case ARV_CAMERA_VENDOR_LUCID:
 		case ARV_CAMERA_VENDOR_UNKNOWN:
 			arv_device_get_float_feature_bounds (camera->priv->device,
 							     camera->priv->has_acquisition_frame_rate ?
@@ -1253,6 +1270,10 @@ arv_camera_set_exposure_time (ArvCamera *camera, double exposure_time_us)
 			arv_device_set_float_feature_value (camera->priv->device, "ExposureTime",
 							      exposure_time_us);
 			break;
+		case ARV_CAMERA_SERIES_LUCID:
+			arv_device_set_float_feature_value (camera->priv->device, "ExposureTime",
+							    exposure_time_us);
+			break;
 		case ARV_CAMERA_SERIES_BASLER_ACE:
 		default:
 			arv_device_set_float_feature_value (camera->priv->device,
@@ -1282,6 +1303,8 @@ arv_camera_get_exposure_time (ArvCamera *camera)
 			return arv_device_get_integer_feature_value (camera->priv->device,"ExposureTime");
 		case ARV_CAMERA_SERIES_RICOH:
 			return arv_device_get_integer_feature_value (camera->priv->device,"ExposureTimeRaw");
+		case ARV_CAMERA_SERIES_LUCID:
+			return arv_device_get_float_feature_value (camera->priv->device,"ExposureTime");
 		default:
 			return arv_device_get_float_feature_value (camera->priv->device,
 						   camera->priv->has_exposure_time ?
@@ -1566,11 +1589,12 @@ arv_camera_is_frame_rate_available (ArvCamera *camera)
 			return arv_device_get_feature (camera->priv->device, "AcquisitionFrameRateAbs") != NULL;
 		case ARV_CAMERA_VENDOR_TIS:
 			return arv_device_get_feature (camera->priv->device, "FPS") != NULL;
+		case ARV_CAMERA_VENDOR_LUCID:
 		case ARV_CAMERA_VENDOR_POINT_GREY_FLIR:
 		case ARV_CAMERA_VENDOR_DALSA:
 		case ARV_CAMERA_VENDOR_RICOH:
 		case ARV_CAMERA_VENDOR_BASLER:
-	        case ARV_CAMERA_VENDOR_XIMEA:
+		case ARV_CAMERA_VENDOR_XIMEA:
 		case ARV_CAMERA_VENDOR_MATRIX_VISION:
 		case ARV_CAMERA_VENDOR_UNKNOWN:
 			return arv_device_get_feature (camera->priv->device,
@@ -2268,6 +2292,9 @@ arv_camera_constructor (GType gtype, guint n_properties, GObjectConstructParam *
 	} else if (g_strcmp0 (vendor_name, "MATRIX VISION GmbH") == 0) {
 		vendor = ARV_CAMERA_VENDOR_MATRIX_VISION;
 		series = ARV_CAMERA_SERIES_MATRIX_VISION;
+	} else if (g_strcmp0 (vendor_name, "Lucid Vision Labs") == 0) {
+		vendor = ARV_CAMERA_VENDOR_LUCID;
+		series = ARV_CAMERA_SERIES_LUCID;
 	} else {
 		vendor = ARV_CAMERA_VENDOR_UNKNOWN;
 		series = ARV_CAMERA_SERIES_UNKNOWN;
